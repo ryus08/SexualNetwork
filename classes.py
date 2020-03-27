@@ -2,6 +2,7 @@ import uuid
 from enum import Enum
 import random
 
+
 class Gender(Enum):
     MALE = 1
     FEMALE = 2
@@ -69,3 +70,4 @@ class Individual:
             rand = random.random()
             if rand < self.concurrency:
                 self.create_partnership(men)
+
