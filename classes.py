@@ -2,17 +2,17 @@ import uuid
 from enum import Enum
 import random
 
-
 class Gender(Enum):
     MALE = 1
     FEMALE = 2
 
 class Individual:
 
-    maxdur = 3
+    maxdur = 3*12
 
     def __init__(self, gender, age, propconc):
         self.age = age
+        self.monthage = age * 12
         self.gender = gender
         self.single = True
         self.partners = dict()
@@ -20,8 +20,10 @@ class Individual:
         self.id = uuid.uuid1()
         self.concurrency = propconc
 
-    def add_year(self):
-        self.age += 1
+    def increment_age(self):
+        self.monthage += 1
+        if self.monthage % 12 == 0:
+            self.age += 1
 
     def add_partner(self, key, value):
         self.partners[key] = value
