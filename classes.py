@@ -7,6 +7,11 @@ class Gender(Enum):
     MALE = 1
     FEMALE = 2
 
+class PartnershipType(Enum):
+    MARITAL = 1
+    SHORT_TERM = 2
+    CASUAL = 3
+
 class Individual:
 
     maxdur = 3*12
@@ -26,14 +31,14 @@ class Individual:
         if self.monthage % 12 == 0:
             self.age += 1
 
-    def add_partner(self, key, value):
-        self.partners[key] = value
+    def add_partner(self, key, duration, type):
+        self.partners[key] = (duration, type)
         self.numpartners += 1
 
     def create_partnership(self, men):
         for m in men:
             if m.single:
-                self.add_partner(m.id, 1)
+                self.add_partner(m.id, 1, PartnershipType.CASUAL)
                 self.single = False
                 m.numpartners += 1
                 break
@@ -41,7 +46,7 @@ class Individual:
                 rand = random.random()
                 if rand < m.concurrency:
                     m.single = False
-                    self.add_partner(m.id, 1)
+                    self.add_partner(m.id, 1, PartnershipType.CASUAL)
                     self.single = False
                     m.numpartners += 1
                     break
@@ -56,9 +61,10 @@ class Individual:
             man.single = True
 
     def check_relationships(self, men):
-        for partnerid, partnershipdur in self.partners.items():
-            if partnershipdur < self.maxdur:
-                self.partners[partnerid] += 1
+        for partnerid, partnership in self.partners.items():
+            if partnership[0] < self.maxdur:
+                dur = partnership[0] + 1
+                self.partners[partnerid] = (dur, partnership[1])
             else:
                 index = men.id.index(partnerid)
                 self.dissolve_partnership(men[index])

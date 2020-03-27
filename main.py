@@ -5,13 +5,13 @@ import configparser
 config = configparser.ConfigParser()
 config.read('example.ini')
 run001 = config['run001']
-
 COHORT_SIZE = int(run001["COHORT_SIZE"])
 SIM_YEARS = int(run001["SIM_YEARS"])
 CYCLE_LENGTH = int(run001["CYCLE_LENGTH"])
-SIM_MONTHS = SIM_YEARS * CYCLE_LENGTH
 CONCURRENCY_MALE = float(run001["CONCURRENCY_MALE"])
 CONCURRENCY_FEMALE = float(run001["CONCURRENCY_FEMALE"])
+
+SIM_MONTHS = SIM_YEARS * CYCLE_LENGTH
 
 ## Create empty list of men and women
 
