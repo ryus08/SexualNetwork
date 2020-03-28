@@ -2,6 +2,7 @@ import uuid
 from enum import Enum
 import random
 import configparser
+import numpy as np
 
 config = configparser.ConfigParser()
 config.read('example.ini')
@@ -15,13 +16,16 @@ PROB_MARITAL = float(run001["PROB_MARITAL"])
 PROB_CASUAL = float(run001["PROB_CASUAL"])
 PROB_SHORT_TERM = float(run001["PROB_SHORT_TERM"])
 PROB_INSTANTANEOUS = float(run001["PROB_INSTANTANEOUS"])
+DUR_MARITAL = int(run001["DUR_MARITAL"])
+DUR_CASUAL = int(run001["DUR_CASUAL"])
+DUR_SHORT_TERM = int(run001["DUR_SHORT_TERM"])
 SIM_MONTHS = SIM_YEARS * CYCLE_LENGTH
 
-# Create empty list of men, women and partnerships
+# Create empty dictionary of men, women and list of partnerships
 
-Women = []
-Men = []
-Partnerships = []
+Women = dict()
+Men = dict()
+Partnerships = dict()
 
 # Defining classes and variables
 
@@ -39,50 +43,41 @@ class PartnershipType(Enum):
 
 
 class Partnership:
-    maxdur_SHORT_TERM = 3 * 12
-    maxdur_MARITAL = 40 * 12
-    maxdur_CASUAL = 1 * 12
 
-    def __init__(self, womanid, manid, partnershiptype):
-        self.partnership_id = uuid.uuid1()
+    def __init__(self, partnershipid, womanid, manid, partnershiptype):
+        self.partnership_id = partnershipid
         self.male_id = manid
         self.female_id = womanid
         self.partnership_duration = 1
         self.partnership_type = partnershiptype
+        if self.partnership_type == PartnershipType.MARITAL:
+            self.maxdur = 12 * np.random.poisson(DUR_MARITAL, 1)
+        elif self.partnership_type == PartnershipType.SHORT_TERM:
+            self.maxdur = 12 * np.random.poisson(DUR_SHORT_TERM, 1)
+        elif self.partnership_type == PartnershipType.CASUAL:
+            self.maxdur = 12 * np.random.poisson(DUR_CASUAL, 1)
 
     def check_relationships(self):
-        if self.partnership_type == PartnershipType.MARITAL:
-            if self.partnership_duration < self.maxdur_MARITAL:
-                self.partnership_duration += 1
-            else:
-                self.dissolve_partnership()
-        elif self.partnership_type == PartnershipType.SHORT_TERM:
-            if self.partnership_duration < self.maxdur_SHORT_TERM:
-                self.partnership_duration += 1
-            else:
-                self.dissolve_partnership()
-        elif self.partnership_type == PartnershipType.CASUAL:
-            if self.partnership_duration < self.maxdur_CASUAL:
-                self.partnership_duration += 1
-            else:
-                self.dissolve_partnership()
-        elif self.partnership_type == PartnershipType.INSTANTANEOUS:
-            self.dissolve_partnership()
-
-    def dissolve_partnership(self):
-        del self
+        if self.partnership_type == PartnershipType.INSTANTANEOUS:
+            del self
+        elif self.partnership_duration < self.maxdur:
+            self.partnership_duration += 1
+        else:
+            Women[self.female_id].numpartners -= 1
+            Men[self.male_id].numpartners -= 1
+            del self
 
 
 class Individual:
+    single = True
+    numpartners = 0
 
-    def __init__(self, gender, age, propconc):
+    def __init__(self, gender, age, propconc, id):
         self.age = age
         self.monthage = age * 12
         self.gender = gender
-        self.single = True
-        self.numpartners = 0
-        self.id = uuid.uuid1()
         self.concurrency = propconc
+        self.id = id
 
     def increment_age(self):
         self.monthage += 1
@@ -90,7 +85,8 @@ class Individual:
             self.age += 1
 
     def add_partner(self, partnerid, partnershiptype):
-        Partnerships.append(Partnership(self.id, partnerid, partnershiptype))
+        partnership_id = uuid.uuid1()
+        Partnerships[partnership_id] = Partnership(partnership_id, self.id, partnerid, partnershiptype)
         self.numpartners += 1
 
     def create_partnership(self, men):
@@ -139,14 +135,16 @@ class Individual:
 # Initialize list of men and women
 
 for x in range(COHORT_SIZE):
-    Women.append(Individual(Gender.FEMALE, 20, CONCURRENCY_FEMALE))
-    Men.append(Individual(Gender.MALE, 20, CONCURRENCY_MALE))
+    woman_id = uuid.uuid1()
+    Women[woman_id] = Individual(Gender.FEMALE, 20, CONCURRENCY_FEMALE, woman_id)
+    man_id = uuid.uuid1()
+    Men[man_id] = Individual(Gender.MALE, 20, CONCURRENCY_MALE, man_id)
 
 # Starting simulation
 
 for months in range(SIM_MONTHS):
-    for w in Women:
+    for _, w in Women.items():
         w.run_partnerships(Men)
 
-    for p in Partnerships:
+    for _, p in Partnerships.items():
         p.check_relationships()
