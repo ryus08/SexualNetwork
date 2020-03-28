@@ -163,41 +163,41 @@ class Individual:
                     self.create_partnership()
 
 
-# Initialize men and women
+if __name__ == "__main__":
+    # Initialize men and women
+    NumMen = []
+    NumWomen = []
+    ModelAges = INITIAL_POPULATION.shape[0]
 
-NumMen = []
-NumWomen = []
-ModelAges = INITIAL_POPULATION.shape[0]
+    for k in range(ModelAges):
+        NumMen.append(int(INITIAL_POPULATION.iloc[k]["MALE"] * COHORT_SIZE))
+        NumWomen.append(int(INITIAL_POPULATION.iloc[k]["FEMALE"] * COHORT_SIZE))
 
-for k in range(ModelAges):
-    NumMen.append(int(INITIAL_POPULATION.iloc[k]["MALE"] * COHORT_SIZE))
-    NumWomen.append(int(INITIAL_POPULATION.iloc[k]["FEMALE"] * COHORT_SIZE))
+    age = 1
+    for x in NumWomen:
+        for i in range(x):
+            woman_id = uuid.uuid1()
+            Women[woman_id] = Individual(Gender.FEMALE, age, CONCURRENCY_FEMALE, woman_id)
+        age += 1
 
-age = 1
-for x in NumWomen:
-    for i in range(x):
-        woman_id = uuid.uuid1()
-        Women[woman_id] = Individual(Gender.FEMALE, age, CONCURRENCY_FEMALE, woman_id)
-    age += 1
+    age = 1
+    for x in NumMen:
+        for i in range(x):
+            man_id = uuid.uuid1()
+            Men[man_id] = Individual(Gender.MALE, age, CONCURRENCY_MALE, man_id)
+        age += 1
 
-age = 1
-for x in NumMen:
-    for i in range(x):
-        man_id = uuid.uuid1()
-        Men[man_id] = Individual(Gender.MALE, age, CONCURRENCY_MALE, man_id)
-    age += 1
+        # Starting simulation
 
-# Starting simulation
+    for months in range(SIM_MONTHS):
+        for _, w in Women.items():
+            w.natural_history(BACKGROUND_MORTALITY_FEMALE)
 
-for months in range(SIM_MONTHS):
-    for _, w in Women.items():
-        w.natural_history(BACKGROUND_MORTALITY_FEMALE)
+        for _, m in Men.items():
+            m.natural_history(BACKGROUND_MORTALITY_MALE)
 
-    for _, m in Men.items():
-        m.natural_history(BACKGROUND_MORTALITY_MALE)
+        for _, w in Women.items():
+            w.run_partnerships()
 
-    for _, w in Women.items():
-        w.run_partnerships()
-
-    for _, p in Partnerships.items():
-        p.check_relationships()
+        for _, p in Partnerships.items():
+            p.check_relationships()
