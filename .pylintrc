@@ -10,4 +10,5 @@ disable=
   line-too-long,
   too-many-instance-attributes,
   redefined-outer-name,
-  no-else-return
+  no-else-return,
+  too-many-arguments

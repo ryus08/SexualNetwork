@@ -53,18 +53,24 @@ class PartnershipType(Enum):
 
 class Partnership:
 
-    def __init__(self, partnershipid, womanid, manid, partnershiptype):
+    def __init__(
+            self,
+            partnershipid,
+            womanid,
+            manid,
+            partnershiptype,
+            duration_randomizer=lambda average: np.random.poisson(average, None)):
         self.partnership_id = partnershipid
         self.male_id = manid
         self.female_id = womanid
         self.partnership_duration = 1
         self.partnership_type = partnershiptype
         if self.partnership_type == PartnershipType.MARITAL:
-            self.maxdur = 12 * np.random.poisson(DUR_MARITAL, None)
+            self.maxdur = 12 * duration_randomizer(DUR_MARITAL)
         elif self.partnership_type == PartnershipType.SHORT_TERM:
-            self.maxdur = 12 * np.random.poisson(DUR_SHORT_TERM, None)
+            self.maxdur = 12 * duration_randomizer(DUR_SHORT_TERM)
         elif self.partnership_type == PartnershipType.CASUAL:
-            self.maxdur = 12 * np.random.poisson(DUR_CASUAL, None)
+            self.maxdur = 12 * duration_randomizer(DUR_CASUAL)
 
     def check_relationships(self):
         if Women[self.female_id].alive and Men[self.male_id].alive:
