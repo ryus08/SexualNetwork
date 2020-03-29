@@ -70,8 +70,9 @@ class Partnership:
         self.female_id = womanid
         self.partnership_duration = 1
         self.partnership_type = partnershiptype
-        average = PARTNERSHIP_DURATIONS[self.partnership_type]
-        self.maxdur = 12 * duration_randomizer(average)
+        if self.partnership_type in PARTNERSHIP_DURATIONS.keys():
+            average = PARTNERSHIP_DURATIONS[self.partnership_type]
+            self.maxdur = 12 * duration_randomizer(average)
 
     def check_relationships(self):
         if Women[self.female_id].alive and Men[self.male_id].alive:

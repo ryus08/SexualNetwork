@@ -21,3 +21,7 @@ def test_partnership_max_dur_calculation_short():
 def test_partnership_max_dur_calculation_casual():
     partnership = Partnership(1, 2, 3, PartnershipType.CASUAL, lambda x: x)
     assert partnership.maxdur == 12
+
+def test_partnership_max_dur_calculation_instantaneous():
+    partnership = Partnership(1, 2, 3, PartnershipType.INSTANTANEOUS, lambda x: x)
+    assert not(hasattr(partnership, 'maxdur'))
