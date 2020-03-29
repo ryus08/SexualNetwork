@@ -3,29 +3,33 @@ from enum import Enum
 import random
 import configparser
 import numpy as np
+import pandas as pd
 
 config = configparser.ConfigParser()
 config.read('example.ini')
 run001 = config['run001']
-COHORT_SIZE = int(run001["COHORT_SIZE"])
-SIM_YEARS = int(run001["SIM_YEARS"])
-CYCLE_LENGTH = int(run001["CYCLE_LENGTH"])
-CONCURRENCY_MALE = float(run001["CONCURRENCY_MALE"])
-CONCURRENCY_FEMALE = float(run001["CONCURRENCY_FEMALE"])
-PROB_MARITAL = float(run001["PROB_MARITAL"])
-PROB_CASUAL = float(run001["PROB_CASUAL"])
-PROB_SHORT_TERM = float(run001["PROB_SHORT_TERM"])
-PROB_INSTANTANEOUS = float(run001["PROB_INSTANTANEOUS"])
-DUR_MARITAL = int(run001["DUR_MARITAL"])
-DUR_CASUAL = int(run001["DUR_CASUAL"])
-DUR_SHORT_TERM = int(run001["DUR_SHORT_TERM"])
+COHORT_SIZE: int = int(run001["COHORT_SIZE"])
+SIM_YEARS: int = int(run001["SIM_YEARS"])
+CYCLE_LENGTH: int = int(run001["CYCLE_LENGTH"])
+CONCURRENCY_MALE: float = float(run001["CONCURRENCY_MALE"])
+CONCURRENCY_FEMALE: float = float(run001["CONCURRENCY_FEMALE"])
+PROB_MARITAL: float = float(run001["PROB_MARITAL"])
+PROB_CASUAL: float = float(run001["PROB_CASUAL"])
+PROB_SHORT_TERM: float = float(run001["PROB_SHORT_TERM"])
+PROB_INSTANTANEOUS: float = float(run001["PROB_INSTANTANEOUS"])
+DUR_MARITAL: int = int(run001["DUR_MARITAL"])
+DUR_CASUAL: int = int(run001["DUR_CASUAL"])
+DUR_SHORT_TERM: int = int(run001["DUR_SHORT_TERM"])
 SIM_MONTHS = SIM_YEARS * CYCLE_LENGTH
+BACKGROUND_MORTALITY_FEMALE: float = pd.read_csv(run001["BACKGROUND_MORTALITY_FEMALE_FILE"])
+BACKGROUND_MORTALITY_MALE: float = pd.read_csv(run001["BACKGROUND_MORTALITY_MALE_FILE"])
 
 # Create empty dictionary of men, women and list of partnerships
 
 Women = dict()
 Men = dict()
 Partnerships = dict()
+
 
 # Defining classes and variables
 
@@ -51,38 +55,49 @@ class Partnership:
         self.partnership_duration = 1
         self.partnership_type = partnershiptype
         if self.partnership_type == PartnershipType.MARITAL:
-            self.maxdur = 12 * np.random.poisson(DUR_MARITAL, 1)
+            self.maxdur = 12 * np.random.poisson(DUR_MARITAL, None)
         elif self.partnership_type == PartnershipType.SHORT_TERM:
-            self.maxdur = 12 * np.random.poisson(DUR_SHORT_TERM, 1)
+            self.maxdur = 12 * np.random.poisson(DUR_SHORT_TERM, None)
         elif self.partnership_type == PartnershipType.CASUAL:
-            self.maxdur = 12 * np.random.poisson(DUR_CASUAL, 1)
+            self.maxdur = 12 * np.random.poisson(DUR_CASUAL, None)
 
     def check_relationships(self):
-        if self.partnership_type == PartnershipType.INSTANTANEOUS:
-            del self
-        elif self.partnership_duration < self.maxdur:
-            self.partnership_duration += 1
+        if Women[self.female_id].alive and Men[self.male_id].alive:
+            if self.partnership_type == PartnershipType.INSTANTANEOUS:
+                self.dissolve_relationship()
+            elif self.partnership_duration < self.maxdur:
+                self.partnership_duration += 1
+            else:
+                self.dissolve_relationship()
         else:
-            Women[self.female_id].numpartners -= 1
-            Men[self.male_id].numpartners -= 1
-            del self
+            self.dissolve_relationship()
+
+    def dissolve_relationship(self):
+        Women[self.female_id].numpartners -= 1
+        Men[self.male_id].numpartners -= 1
+        del self
 
 
 class Individual:
     single = True
     numpartners = 0
+    alive = True
 
-    def __init__(self, gender, age, propconc, id):
+    def __init__(self, gender, age, propconc, identifier):
         self.age = age
-        self.monthage = age * 12
+        self.month_age = age * 12
         self.gender = gender
         self.concurrency = propconc
-        self.id = id
+        self.id = identifier
 
-    def increment_age(self):
-        self.monthage += 1
-        if self.monthage % 12 == 0:
-            self.age += 1
+    def natural_history(self, mortality):
+        rand = random.random()
+        if rand < mortality.iloc[self.age]["mASR"]:
+            self.alive = False
+        else:
+            self.month_age += 1
+            if self.month_age % 12 == 0:
+                self.age += 1
 
     def add_partner(self, partnerid, partnershiptype):
         partnership_id = uuid.uuid1()
@@ -90,8 +105,7 @@ class Individual:
         self.numpartners += 1
 
     def create_partnership(self, men):
-        random.shuffle(men)
-        for m in men:
+        for _, m in men.items():
             if m.single:
                 rand = random.random()
                 if rand < PROB_CASUAL:
@@ -113,8 +127,6 @@ class Individual:
                     rand = random.random()
                     if rand < PROB_CASUAL:
                         self.add_partner(m.id, PartnershipType.CASUAL)
-                    elif rand < (PROB_CASUAL + PROB_SHORT_TERM):
-                        self.add_partner(m.id, PartnershipType.SHORT_TERM)
                     else:
                         self.add_partner(m.id, PartnershipType.INSTANTANEOUS)
                     m.single = False
@@ -132,7 +144,7 @@ class Individual:
                 self.create_partnership(men)
 
 
-# Initialize list of men and women
+# Initialize men and women
 
 for x in range(COHORT_SIZE):
     woman_id = uuid.uuid1()
@@ -143,6 +155,12 @@ for x in range(COHORT_SIZE):
 # Starting simulation
 
 for months in range(SIM_MONTHS):
+    for _, w in Women.items():
+        w.natural_history(BACKGROUND_MORTALITY_FEMALE)
+
+    for _, m in Men.items():
+        m.natural_history(BACKGROUND_MORTALITY_MALE)
+
     for _, w in Women.items():
         w.run_partnerships(Men)
 
