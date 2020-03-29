@@ -20,9 +20,14 @@ PROB_INSTANTANEOUS: float = float(run001["PROB_INSTANTANEOUS"])
 DUR_MARITAL: int = int(run001["DUR_MARITAL"])
 DUR_CASUAL: int = int(run001["DUR_CASUAL"])
 DUR_SHORT_TERM: int = int(run001["DUR_SHORT_TERM"])
+SEXUAL_DEBUT_AGE: int = int(run001["SEXUAL_DEBUT_AGE"])
+BACKGROUND_MORTALITY_FEMALE = pd.read_csv(run001["BACKGROUND_MORTALITY_FEMALE_FILE"])
+BACKGROUND_MORTALITY_MALE = pd.read_csv(run001["BACKGROUND_MORTALITY_MALE_FILE"])
+AGE_OF_PARTNER = pd.read_csv(run001["AGE_OF_PARTNER_FILE"])
+PARTNERSHIP_FORMATION = pd.read_csv(run001["PARTNERSHIP_FORMATION_FILE"])
+INITIAL_POPULATION = pd.read_csv(run001["INITIAL_POPULATION_FILE"])
+
 SIM_MONTHS = SIM_YEARS * CYCLE_LENGTH
-BACKGROUND_MORTALITY_FEMALE: float = pd.read_csv(run001["BACKGROUND_MORTALITY_FEMALE_FILE"])
-BACKGROUND_MORTALITY_MALE: float = pd.read_csv(run001["BACKGROUND_MORTALITY_MALE_FILE"])
 
 # Create empty dictionary of men, women and list of partnerships
 
@@ -103,54 +108,84 @@ class Individual:
         partnership_id = uuid.uuid1()
         Partnerships[partnership_id] = Partnership(partnership_id, self.id, partnerid, partnershiptype)
         self.numpartners += 1
+        Men[partnerid].numpartners += 1
 
-    def create_partnership(self, men):
-        for _, m in men.items():
-            if m.single:
-                rand = random.random()
-                if rand < PROB_CASUAL:
-                    self.add_partner(m.id, PartnershipType.CASUAL)
-                elif rand < (PROB_CASUAL + PROB_MARITAL):
-                    self.add_partner(m.id, PartnershipType.MARITAL)
-                elif rand < (PROB_CASUAL + PROB_MARITAL + PROB_SHORT_TERM):
-                    self.add_partner(m.id, PartnershipType.SHORT_TERM)
-                else:
-                    self.add_partner(m.id, PartnershipType.INSTANTANEOUS)
-                m.single = False
-                self.single = False
-                self.numpartners += 1
-                m.numpartners += 1
-                break
-            else:
-                rand = random.random()
-                if rand < m.concurrency:
-                    rand = random.random()
-                    if rand < PROB_CASUAL:
-                        self.add_partner(m.id, PartnershipType.CASUAL)
-                    else:
-                        self.add_partner(m.id, PartnershipType.INSTANTANEOUS)
+    def create_partnership(self):
+        for _, m in Men.items():
+            if (AGE_OF_PARTNER.iloc[self.age]["mean"] + AGE_OF_PARTNER.iloc[self.age]["SD"]) >= m.age >= (AGE_OF_PARTNER.iloc[self.age]["mean"] - AGE_OF_PARTNER.iloc[self.age]["SD"]):
+                if m.single:
+                    relationship_type = self.assign_partnership_type(True)
+                    self.add_partner(m.id, relationship_type)
                     m.single = False
-                    self.numpartners += 1
                     self.single = False
+                    self.numpartners += 1
                     m.numpartners += 1
                     break
+                else:
+                    rand = random.random()
+                    if rand < m.concurrency:
+                        relationship_type = self.assign_partnership_type(False)
+                        self.add_partner(m.id, relationship_type)
+                        m.single = False
+                        self.numpartners += 1
+                        self.single = False
+                        m.numpartners += 1
+                        break
 
-    def run_partnerships(self, men):
-        if self.single:
-            self.create_partnership(men)
+    @staticmethod
+    def assign_partnership_type(single):
+        if single:
+            rand = random.random()
+            if rand < PROB_CASUAL:
+                return PartnershipType.CASUAL
+            elif rand < (PROB_CASUAL + PROB_MARITAL):
+                return PartnershipType.MARITAL
+            elif rand < (PROB_CASUAL + PROB_MARITAL + PROB_SHORT_TERM):
+                return PartnershipType.SHORT_TERM
+            else:
+                return PartnershipType.INSTANTANEOUS
         else:
             rand = random.random()
-            if rand < self.concurrency:
-                self.create_partnership(men)
+            if rand < PROB_CASUAL:
+                return PartnershipType.CASUAL
+            else:
+                return PartnershipType.INSTANTANEOUS
+
+    def run_partnerships(self):
+        if self.age >= SEXUAL_DEBUT_AGE:
+            if self.single:
+                rand = random.random()
+                if rand < PARTNERSHIP_FORMATION.iloc[self.age]["Female"]:
+                    self.create_partnership()
+            else:
+                rand = random.random()
+                if rand < self.concurrency:
+                    self.create_partnership()
 
 
 # Initialize men and women
 
-for x in range(COHORT_SIZE):
-    woman_id = uuid.uuid1()
-    Women[woman_id] = Individual(Gender.FEMALE, 20, CONCURRENCY_FEMALE, woman_id)
-    man_id = uuid.uuid1()
-    Men[man_id] = Individual(Gender.MALE, 20, CONCURRENCY_MALE, man_id)
+NumMen = []
+NumWomen = []
+ModelAges = INITIAL_POPULATION.shape[0]
+
+for k in range(ModelAges):
+    NumMen.append(int(INITIAL_POPULATION.iloc[k]["MALE"] * COHORT_SIZE))
+    NumWomen.append(int(INITIAL_POPULATION.iloc[k]["FEMALE"] * COHORT_SIZE))
+
+age = 1
+for x in NumWomen:
+    for i in range(x):
+        woman_id = uuid.uuid1()
+        Women[woman_id] = Individual(Gender.FEMALE, age, CONCURRENCY_FEMALE, woman_id)
+    age += 1
+
+age = 1
+for x in NumMen:
+    for i in range(x):
+        man_id = uuid.uuid1()
+        Men[man_id] = Individual(Gender.MALE, age, CONCURRENCY_MALE, man_id)
+    age += 1
 
 # Starting simulation
 
@@ -162,7 +197,7 @@ for months in range(SIM_MONTHS):
         m.natural_history(BACKGROUND_MORTALITY_MALE)
 
     for _, w in Women.items():
-        w.run_partnerships(Men)
+        w.run_partnerships()
 
     for _, p in Partnerships.items():
         p.check_relationships()
