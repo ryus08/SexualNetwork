@@ -1,4 +1,4 @@
-from sexualnetwork import Partnership, Marriage, ShortTermRelationship, CasualRelationship, Women, Men, Gender, Individual
+from sexualnetwork import Partnership, Marriage, ShortTermRelationship, CasualRelationship, InstantaneousRelationship, Women, Men, Gender, Individual
 import re
 
 def test_partnership_creation():
@@ -20,3 +20,7 @@ def test_partnership_max_dur_calculation_short():
 def test_partnership_max_dur_calculation_casual():
     partnership = CasualRelationship(1, 2, 3, lambda x: x)
     assert partnership.maxdur == 12
+
+def test_partnership_max_dur_calculation_instantaneous():
+    partnership = InstantaneousRelationship(1, 2, 3, lambda x: x)
+    assert partnership.maxdur == 0
