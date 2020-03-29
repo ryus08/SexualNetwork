@@ -43,14 +43,6 @@ class Gender(Enum):
     MALE = 1
     FEMALE = 2
 
-
-class PartnershipType(Enum):
-    MARITAL = 1
-    SHORT_TERM = 2
-    CASUAL = 3
-    INSTANTANEOUS = 4
-
-
 class Partnership:
 
     def __init__(
@@ -58,25 +50,21 @@ class Partnership:
             partnershipid,
             womanid,
             manid,
-            partnershiptype,
             duration_randomizer=lambda average: np.random.poisson(average, None)):
         self.partnership_id = partnershipid
         self.male_id = manid
         self.female_id = womanid
         self.partnership_duration = 1
-        self.partnership_type = partnershiptype
-        if self.partnership_type == PartnershipType.MARITAL:
-            self.maxdur = 12 * duration_randomizer(DUR_MARITAL)
-        elif self.partnership_type == PartnershipType.SHORT_TERM:
-            self.maxdur = 12 * duration_randomizer(DUR_SHORT_TERM)
-        elif self.partnership_type == PartnershipType.CASUAL:
-            self.maxdur = 12 * duration_randomizer(DUR_CASUAL)
+        self.maxdur = 12 * duration_randomizer(self.averageDuration())
+
+    def averageDuration(self):
+        # Kinda expected that we'd never instantiate this class directly, but instead instantiate the subclasses
+        # So this really shouldn't be hit. Probably should make it error
+        return -1
 
     def check_relationships(self):
         if Women[self.female_id].alive and Men[self.male_id].alive:
-            if self.partnership_type == PartnershipType.INSTANTANEOUS:
-                self.dissolve_relationship()
-            elif self.partnership_duration < self.maxdur:
+            if self.partnership_duration < self.maxdur:
                 self.partnership_duration += 1
             else:
                 self.dissolve_relationship()
@@ -88,6 +76,30 @@ class Partnership:
         Men[self.male_id].numpartners -= 1
         del self
 
+class Marriage(Partnership):
+    def averageDuration(self):
+        return DUR_MARITAL
+
+class CasualRelationship(Partnership):
+    def averageDuration(self):
+        return DUR_CASUAL
+
+class ShortTermRelationship(Partnership):
+    def averageDuration(self):
+        return DUR_SHORT_TERM
+
+class InstantaneousRelationship(Partnership):
+    def __init__(
+            self,
+            partnershipid,
+            womanid,
+            manid,
+            duration_randomizer=lambda average: np.random.poisson(average, None)):
+        super().__init__(partnershipid, womanid, manid, duration_randomizer)
+        self.maxdur = 0
+
+    def averageDuration(self):
+        return 0
 
 class Individual:
     single = True
@@ -110,9 +122,9 @@ class Individual:
             if self.month_age % 12 == 0:
                 self.age += 1
 
-    def add_partner(self, partnerid, partnershiptype):
+    def add_partner(self, partnerid, RelationshipType):
         partnership_id = uuid.uuid1()
-        Partnerships[partnership_id] = Partnership(partnership_id, self.id, partnerid, partnershiptype)
+        Partnerships[partnership_id] = RelationshipType(partnership_id, self.id, partnerid)
         self.numpartners += 1
         Men[partnerid].numpartners += 1
 
@@ -143,19 +155,19 @@ class Individual:
         if single:
             rand = random.random()
             if rand < PROB_CASUAL:
-                return PartnershipType.CASUAL
+                return CasualRelationship
             elif rand < (PROB_CASUAL + PROB_MARITAL):
-                return PartnershipType.MARITAL
+                return Marriage
             elif rand < (PROB_CASUAL + PROB_MARITAL + PROB_SHORT_TERM):
-                return PartnershipType.SHORT_TERM
+                return ShortTermRelationship
             else:
-                return PartnershipType.INSTANTANEOUS
+                return InstantaneousRelationship
         else:
             rand = random.random()
             if rand < PROB_CASUAL:
-                return PartnershipType.CASUAL
+                return CasualRelationship
             else:
-                return PartnershipType.INSTANTANEOUS
+                return InstantaneousRelationship
 
     def run_partnerships(self):
         if self.age >= SEXUAL_DEBUT_AGE:
